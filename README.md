@@ -118,9 +118,3 @@ Each invariant returns a satisfiability result together with a Z3 certificate or
 - **Auditor-oriented**
 
 ---
-
-## Citation
-
-If you use PonziAgent in academic work, please cite the corresponding paper:
-
-> PonziProber / PonziZgent: A Hybrid Detection Framework Combining Static Analysis and Multi-Aspect LLM Explanations for Smart Contract Ponzi Schemes.
