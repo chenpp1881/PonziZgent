@@ -180,39 +180,18 @@ def run_invariants(mech: dict) -> dict:
     reg.register("I4", invariant_I4)
     return reg.run_all(mech)
 
-
-# def final_decision(llm: LLMClient, code_block: str, mech: dict, inv_results: dict, aspect_exps: dict) -> dict:
-#     user = fill_template_literal(
-#         FINAL_PONZI_DECISION_USER_TEMPLATE,
-#         code_with_line_numbers=code_block,
-#         mechanism_json=json.dumps(mech, ensure_ascii=False, indent=2),
-#         invariants_result_json=json.dumps(inv_results, ensure_ascii=False, indent=2),
-#         aspect_explanations_json=json.dumps(aspect_exps or {}, ensure_ascii=False, indent=2)
-#     )
-#     return llm.chat_json(FINAL_PONZI_DECISION_SYSTEM, user)
-
 def final_decision(llm: LLMClient,
                    payload_mode: str,
                    code_block: str,
                    mech: dict,
                    inv_results: dict,
                    aspect_exps: dict) -> dict:
-    if payload_mode == "full":
-        user = fill_template_literal(
-            FINAL_PONZI_DECISION_USER_TEMPLATE,
-            code_with_line_numbers=code_block,
-            mechanism_json=json.dumps(mech, ensure_ascii=False, indent=2),
-            invariants_result_json=json.dumps(inv_results, ensure_ascii=False, indent=2),
-            # aspect_conclusions_json=json.dumps(aspect_exps or {}, ensure_ascii=False, indent=2)
-        )
-    else:
-        # lean: 只传源码 + 结论
-        user = fill_template_literal(
-            FINAL_PONZI_DECISION_USER_TEMPLATE_LEAN,
-            code_with_line_numbers=code_block,
-            aspect_conclusions_json=json.dumps(aspect_exps or {}, ensure_ascii=False, indent=2)
-        )
-    return llm.chat_json(FINAL_PONZI_DECISION_SYSTEM, user)
+    user = fill_template_literal(
+        FINAL_PONZI_DECISION_USER_TEMPLATE,
+        code_with_line_numbers=code_block,
+        mechanism_json=json.dumps(mech, ensure_ascii=False, indent=2),
+        invariants_result_json=json.dumps(inv_results, ensure_ascii=False, indent=2),
+    )
 
 
 def process_one_contract_from_code(llm: LLMClient, code: str, contract_id: str, llm_payload) -> Dict[str, Any]:
@@ -307,10 +286,6 @@ def _safe_write_batch(batch_out: Path, items: List[Dict[str, Any]], metrics: Dic
 
 
 def _sort_key(x: Dict[str, Any]):
-    """
-    排序：优先使用 original_index（数值），否则回退 contract_id（字符串）。
-    确保对齐原始 JSON 顺序。
-    """
     oi = x.get("original_index", None)
     if isinstance(oi, (int, float)) or (isinstance(oi, str) and str(oi).isdigit()):
         try:
@@ -330,17 +305,10 @@ def main():
     ap.add_argument("--json", default="llm_explanations.json",
                     help="Path to a JSON file with list of objects containing 'code' and 'label'.")
 
-    # LLM params
-    # ap.add_argument("--api_key", default=os.getenv("OPENAI_API_KEY", "sk-GGi8JFWuUjwtUUGMi7N5orP9MmLXpFAJzFUpLcRM77JexsPh"),
-    #                 help="yunwuai")
-    # ap.add_argument("--base_url", default=os.getenv("OPENAI_BASE_URL", "https://yunwu.ai/v1"))
-    # ap.add_argument("--model",    default=os.getenv("OPENAI_MODEL", "gpt-5"))
-
-    ap.add_argument("--api_key", default=os.getenv("OPENAI_API_KEY", "sk-ab23385b489043cbadcd5b06645689e5"),
+    ap.add_argument("--api_key", default=os.getenv("OPENAI_API_KEY", ""),
                     help="deepseek")
-    # ap.add_argument("--api_key", default=os.getenv("OPENAI_API_KEY", "sk-414392ea0be843638e8e629af4a24cad"), help="deepseek")
-    ap.add_argument("--base_url", default=os.getenv("OPENAI_BASE_URL", "https://api.deepseek.com"))
-    ap.add_argument("--model", default=os.getenv("OPENAI_MODEL", "deepseek-chat"))
+    ap.add_argument("--base_url", default=os.getenv("OPENAI_BASE_URL", ""))
+    ap.add_argument("--model", default=os.getenv("OPENAI_MODEL", ""))
 
     # Outputs
     ap.add_argument("--out", default="ponzi_result.json", help="Output JSON path for single mode")
@@ -495,3 +463,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
