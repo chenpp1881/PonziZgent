@@ -1,10 +1,8 @@
 # PonziAgent
-**Training-Free Smart Contract Ponzi Scheme Detection via LLM-Extracted Mechanisms and Z3 Invariants**
+**PonziZgent: Invariant Verification Enhance Multi-aspect LLM Reasoning for Ponzi Smart Contracts**
 
 PonziAgent is a training-free smart contract analysis framework for detecting **Smart Contract Ponzi Schemes (SCPS)**.  
 It combines **Large Language Models (LLMs)** for semantic mechanism extraction with **Z3-based invariant checking** to produce *explainable, verifiable, and robust* Ponzi detection results.
-
-Unlike learning-based approaches that rely on labeled datasets and fragile compilation pipelines, PonziAgent directly reasons over **economic logic encoded in Solidity source code**, making it suitable for large-scale auditing and historical contract analysis.
 
 ---
 
@@ -30,7 +28,6 @@ PonziAgent follows a **three-stage pipeline**:
    Aggregate source code, extracted mechanisms, and invariant certificates to output a final verdict:
    - `Ponzi`
    - `Non-Ponzi`
-   - `Uncertain`  
 
 Each decision is accompanied by **explicit evidence and line-level justifications**.
 
@@ -66,9 +63,9 @@ pip install z3-solver requests
 ### Environment Variables (Optional)
 
 ```bash
-export OPENAI_API_KEY=sk-...
-export OPENAI_BASE_URL=https://api.openai.com/v1
-export OPENAI_MODEL=gpt-4o-mini
+export OPENAI_API_KEY=
+export OPENAI_BASE_URL=
+export OPENAI_MODEL=
 ```
 
 Any OpenAI-compatible API (e.g., DeepSeek) can be used.
