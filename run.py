@@ -19,15 +19,12 @@ from pathlib import Path
 from typing import List, Dict, Any, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# ========= Flexible imports (adapt to your project layout) =========
-# Preferred (flat files):
-
 from ponzi_agent.prompts import (
     EQUATION_EXTRACTION_SYSTEM,
     EQUATION_EXTRACTION_USER_TEMPLATE,
     FINAL_PONZI_DECISION_SYSTEM,
-    FINAL_PONZI_DECISION_USER_TEMPLATE,  # full 用
-    FINAL_PONZI_DECISION_USER_TEMPLATE_LEAN,  # lean 用（新增）
+    FINAL_PONZI_DECISION_USER_TEMPLATE,
+    FINAL_PONZI_DECISION_USER_TEMPLATE_LEAN, 
     ASPECT_EXPLAIN_SYSTEM,
     ASPECT_EXPLAIN_USER_TEMPLATE
 )
@@ -101,7 +98,7 @@ from ponzi_agent.invariants.i_registry import InvariantRegistry
 from ponzi_agent.invariants.solvers_z3 import invariant_I1, invariant_I2, invariant_I3, invariant_I4
 
 
-# ========== Utility: safe template filler (avoid .format pitfalls) ==========
+
 def fill_template_literal(tpl: str, **kwargs) -> str:
     """
     Safely replace only the placeholders we explicitly provide: {key}.
@@ -112,8 +109,6 @@ def fill_template_literal(tpl: str, **kwargs) -> str:
         out = out.replace("{" + k + "}", str(v))
     return out
 
-
-# ========== Read .sol files (for single-contract mode) ==========
 def _read_text(p: Path, encoding="utf-8") -> str:
     with p.open("r", encoding=encoding, errors="ignore") as f:
         return f.read()
@@ -149,8 +144,6 @@ def read_code_with_line_numbers(src: Path) -> Tuple[str, Dict[str, List[str]]]:
         merged.extend(numbered)
     return "\n".join(merged), file_map
 
-
-# ========== Pipeline: mechanism extraction -> invariants -> final decision ==========
 def extract_mechanism(llm: LLMClient, contract_id: str, code_block: str) -> dict:
     user = fill_template_literal(
         EQUATION_EXTRACTION_USER_TEMPLATE,
@@ -215,8 +208,6 @@ def process_one_contract_from_code(llm: LLMClient, code: str, contract_id: str, 
         "aspect_explanations": aspect_exps,
         "invariants": invariants,
         "final_decision": decision,
-
-        # === NEW: 一并返回，方便上层决定是否落盘 ===
         "source_code_raw": code,
         "source_code_numbered": code_block
     }
@@ -250,7 +241,6 @@ def compute_prf(y_true: List[int], y_pred: List[int]) -> Dict[str, float]:
     return {"precision": precision, "recall": recall, "f1": f1, "tp": tp, "fp": fp, "fn": fn}
 
 
-# ========== Batch helpers (resume + realtime save + multithreading) ==========
 def _load_existing_items(batch_out: Path) -> List[Dict[str, Any]]:
     if not batch_out.exists():
         return []
@@ -298,10 +288,8 @@ def _sort_key(x: Dict[str, Any]):
 def main():
     ap = argparse.ArgumentParser(description="PonziAgent: LLM equations + Z3 invariants")
 
-    # Mode A: single contract (original)
     ap.add_argument("--src", help="Solidity file or directory. If provided, run single-contract mode.")
 
-    # Mode B: batch JSON
     ap.add_argument("--json", default="llm_explanations.json",
                     help="Path to a JSON file with list of objects containing 'code' and 'label'.")
 
@@ -310,24 +298,19 @@ def main():
     ap.add_argument("--base_url", default=os.getenv("OPENAI_BASE_URL", ""))
     ap.add_argument("--model", default=os.getenv("OPENAI_MODEL", ""))
 
-    # Outputs
     ap.add_argument("--out", default="ponzi_result.json", help="Output JSON path for single mode")
     ap.add_argument("--batch_out", default="ponzi_batch_result.json", help="Output JSON path for batch mode")
-
-    # === NEW: 控制是否在结果中保存源代码 ===
     ap.add_argument("--save_source", action="store_true", help="Include raw source code in saved results")
     ap.add_argument("--save_numbered", action="store_true", help="Include line-numbered source code in saved results")
 
-    # JSON field names
     ap.add_argument("--code_field", default="code", help="Field name for smart-contract source code in JSON")
     ap.add_argument("--label_field", default="label", help="Field name for ground-truth label in JSON")
-    ap.add_argument("--start_index", "-s", type=int, default=None, help="开始样本索引（包含）")
-    ap.add_argument("--end_index", "-e", type=int, default=None, help="结束样本索引（不包含）")
+    ap.add_argument("--start_index", "-s", type=int, default=None)
+    ap.add_argument("--end_index", "-e", type=int, default=None)
 
     ap.add_argument("--llm_payload", choices=["full", "lean"], default="full",
                     help="Payload to final decision LLM: 'full' sends code+mechanism+invariants+conclusions; 'lean' sends only code+conclusions (default).")
 
-    # Performance / robustness
     ap.add_argument("--max_workers", type=int, default=10, help="Max concurrent threads for LLM calls (I/O bound)")
     ap.add_argument("--resume", action="store_true", help="Resume from existing --batch_out if present")
     ap.add_argument("--max_retries", type=int, default=3, help="Retries per contract upon transient failures")
@@ -335,16 +318,12 @@ def main():
 
     args = ap.parse_args()
 
-    # Init LLM
     llm = LLMClient(api_key=args.api_key, base_url=args.base_url, model=args.model)
 
-    # ========= Batch JSON mode =========
     if args.json:
         data = json.loads(Path(args.json).read_text(encoding="utf-8"))
         if not isinstance(data, list):
             raise RuntimeError("JSON must be a list of objects with 'code' and 'label'.")
-
-        # 只取前 N 条（N==0 表示不限制）
         if args.start_index is not None or args.end_index is not None:
             start = args.start_index or 0
             end = args.end_index or len(data)
@@ -360,7 +339,6 @@ def main():
         results_map: Dict[str, Dict[str, Any]] = {it.get("contract_id"): it for it in existing_items}
 
         def process_item(idx: int, item: Dict[str, Any]) -> Tuple[int, str, int, int, Dict[str, Any]]:
-            # 使用原始 index（严格按你的要求）；若缺失则回退 idx 以保证健壮性
             orig_id = item["index"] if "index" in item else idx
             contract_id = f"JSON#{orig_id}"
             gt = _to_int_label(item.get(args.label_field, 0))
@@ -371,7 +349,6 @@ def main():
                 pred_label = int(done_obj.get("predicted_label", 0))
                 return idx, contract_id, gt, pred_label, done_obj
 
-            # retries with backoff
             last_err = None
             for attempt in range(1, args.max_retries + 1):
                 try:
@@ -395,7 +372,6 @@ def main():
                     wait = (args.retry_backoff ** (attempt - 1))
                     print(f"[Retry {attempt}/{args.max_retries}] {contract_id} error: {e}. Backoff {wait:.1f}s")
                     time.sleep(wait)
-            # If all retries failed, record error result
             err_obj = {
                 "contract_id": contract_id,
                 "error": str(last_err),
@@ -440,14 +416,12 @@ def main():
                 oi = obj.get("original_index", cid.replace("JSON#", ""))
 
                 if _is_na_decision(decision):
-                    # 不进入 y_true/y_pred，但仍保存
                     print(f"[{finished}/{total}] JSON#{oi} decision={decision}")
                 else:
                     y_true.append(gt)
                     y_pred.append(pred)
                     print(f"[{finished}/{total}] JSON#{oi}  GT={gt}  PRED={pred}  decision={decision}")
 
-                # 实时保存（不带 metrics），按 original_index 排序
                 _safe_write_batch(batch_out, list(sorted(merged_items.values(), key=_sort_key)))
 
         # Final metrics
@@ -463,4 +437,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
